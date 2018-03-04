@@ -1,7 +1,7 @@
 package com.perusudroid.mypermissionpicker.permission;
 
 /**
- * Created by guru on 2/23/2016.
+ * Created by perusu on 26/2/18.
  */
 public enum RequestForPermission {
 

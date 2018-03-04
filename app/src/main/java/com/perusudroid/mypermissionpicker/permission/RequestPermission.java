@@ -8,8 +8,9 @@ import android.util.Log;
 
 
 /**
- * Created by anand_android on 10/1/2016.
+ * Created by perusu on 26/2/18.
  */
+
 public class RequestPermission implements IPermissionHandler {
 
     private String TAG = "RequestPermission";

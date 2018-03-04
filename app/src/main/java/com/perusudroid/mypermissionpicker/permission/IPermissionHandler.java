@@ -1,8 +1,9 @@
 package com.perusudroid.mypermissionpicker.permission;
 
 /**
- * Created by anand_android on 10/1/2016.
+ * Created by perusu on 26/2/18.
  */
+
 public interface IPermissionHandler {
     int PERMISSIONS_REQUEST_CAMERA = 40;
     int PERMISSIONS_REQUEST_RECEVIE_SMS = 41;
