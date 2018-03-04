@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">MyPermissionPicker</string>
+    <string name="directory_name">MunchBox</string>
+    <string name="directory_name_images">Profile</string>
+</resources>
