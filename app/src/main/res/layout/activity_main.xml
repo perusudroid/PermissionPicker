@@ -9,7 +9,7 @@
     tools:context="com.perusudroid.mypermissionpicker.view.MainActivity">
 
     <android.support.v7.widget.AppCompatImageView
-        android:src="@mipmap/ic_launcher"
+
         android:id="@+id/ivPic"
         android:layout_gravity="center"
         android:layout_width="match_parent"

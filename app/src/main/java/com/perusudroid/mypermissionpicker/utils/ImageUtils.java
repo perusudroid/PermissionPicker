@@ -42,12 +42,17 @@ public class ImageUtils {
     private static final String TAG = ImageUtils.class.getSimpleName();
     private static FragmentChooser fragmentChooser;
     private static File camFile;
+    private static String camUri;
 
 
     private static String genRandomImageName() {
         return gen() + "_profile.jpg";
     }
 
+
+    public static String getCamUri() {
+        return camUri;
+    }
 
     private static int gen() {
         return 10000 + new Random(System.currentTimeMillis()).nextInt(20000);
@@ -62,7 +67,6 @@ public class ImageUtils {
         String state = Environment.getExternalStorageState();
         return state.equals(Environment.MEDIA_MOUNTED);
     }
-
 
 
     /**
@@ -101,7 +105,6 @@ public class ImageUtils {
     }
 
     /**
-     *
      * @param activity - functionality exists
      */
 
@@ -135,7 +138,7 @@ public class ImageUtils {
     public static File onLaunchCamera(Context context) {
 
         Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        String camUri = ImageUtils.genRandomImageName();
+        camUri = ImageUtils.genRandomImageName();
         camFile = ImageUtils.getPhotoFileFromUri(context, camUri);
 
         Uri fileProvider = FileProvider.getUriForFile(context, BuildConfig.APPLICATION_ID + ".provider", camFile);
@@ -148,8 +151,6 @@ public class ImageUtils {
         return camFile;
 
     }
-
-
 
 
     public static File getPhotoFileFromUri(Context context, String fileName) {
@@ -212,7 +213,7 @@ public class ImageUtils {
         int imageWidth = options.outWidth; // 860
         String imageType = options.outMimeType; // .jpg .png .gif
 
-        Log.d(TAG, "bimapAttributes:type "+ type +" fileSize "+ getFileSize(file) +" imageHeight " + imageHeight + " imageWidth " + imageWidth + " imageType " + imageType);
+        Log.d(TAG, "bimapAttributes:type " + type + " fileSize " + getFileSize(file) + " imageHeight " + imageHeight + " imageWidth " + imageWidth + " imageType " + imageType);
 
     }
 
@@ -223,12 +224,11 @@ public class ImageUtils {
     }
 
 
-
     public static File getCompressedImageAsFile(Context paramContext, File originalFile, boolean reduceQuality) {
 
         Bitmap paramBitmap = getBitmap(originalFile.getAbsolutePath());
 
-        imageFileAttributes(paramContext, originalFile,"originalFile");
+        imageFileAttributes(paramContext, originalFile, "originalFile");
 
         if (paramBitmap != null) {
 
@@ -240,7 +240,7 @@ public class ImageUtils {
 
             File compressedFile = getFileFromBitmap1(paramContext, paramBitmap);
 
-            imageFileAttributes(paramContext, compressedFile,"compressedFile");
+            imageFileAttributes(paramContext, compressedFile, "compressedFile");
 
             return compressedFile;
         }
@@ -417,7 +417,6 @@ public class ImageUtils {
     }
 
 
-
     private static Bitmap getBitmap(final String imagePath) {
 
         return BitmapFactory.decodeFile(imagePath);
@@ -454,7 +453,6 @@ public class ImageUtils {
         return null;
     }
 */
-
 
 
 }

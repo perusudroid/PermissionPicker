@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Handler;
 import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -13,13 +14,13 @@ import android.widget.ImageView;
 
 import com.bumptech.glide.Glide;
 import com.perusudroid.mypermissionpicker.adapter.AlertDialogListener;
-import com.perusudroid.mypermissionpicker.CodeSnippet;
 import com.perusudroid.mypermissionpicker.utils.Constants;
 import com.perusudroid.mypermissionpicker.utils.ImageUtils;
 import com.perusudroid.mypermissionpicker.R;
 import com.perusudroid.mypermissionpicker.permission.IPermissionHandler;
 import com.perusudroid.mypermissionpicker.permission.PermissionProducer;
 import com.perusudroid.mypermissionpicker.permission.RequestPermission;
+import com.perusudroid.mypermissionpicker.utils.a;
 import com.soundcloud.android.crop.Crop;
 
 import java.io.File;
@@ -30,6 +31,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private IPermissionHandler iPermissionHandler;
     private File resultCamFile, resultCroppedFile, resultGalleryFile;
     private ImageView imageView;
+    private Uri galleryUri;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -89,7 +91,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
 
     private void checKGallery() {
-        if (CodeSnippet.isAboveMarshmallow()) {
+        if (ImageUtils.isAboveMarshmallow()) {
             iPermissionHandler.callStoragePermissionHandler();
         } else {
             ImageUtils.callGalleryPic(this);
@@ -97,7 +99,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void checkCamera() {
-        if (CodeSnippet.isAboveMarshmallow()) {
+        if (ImageUtils.isAboveMarshmallow()) {
             iPermissionHandler.callCameraPermissionHandler();
         } else {
             resultCamFile = ImageUtils.onLaunchCamera(this);
@@ -147,9 +149,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 if (data != null) {
 
                     // WITHOUT CROPPING
-                    Uri selectedImage = data.getData();
+                    galleryUri = data.getData();
                     String[] filePathColumn = {MediaStore.Images.Media.DATA};
-                    Cursor cursor = getActivity().getContentResolver().query(selectedImage,
+                    Cursor cursor = getActivity().getContentResolver().query(galleryUri,
                             filePathColumn, null, null, null);
                     if (cursor != null) {
                         cursor.moveToFirst();
@@ -207,11 +209,35 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
 
-    private void doUploadPic(File fileToUpload) {
+    private void doUploadPic(final File fileToUpload) {
         try {
+
+            displayProfilePicture(fileToUpload);
+
             Log.d(TAG, "doUploadHotelPic: ");
 
-            File compressedFile = ImageUtils.getCompressedImageAsFile(this, fileToUpload, false);
+         // final File compressedFile = ImageUtils.getCompressedImageAsFile(this, fileToUpload, false);
+
+            final String str = a.getInstance().compressImage(this, galleryUri.toString());
+
+            final File compressedFile = new File(str);
+
+            Log.d(TAG, "doUploadPic: file.exists "+ compressedFile.exists());
+
+            Log.d(TAG, "doUploadPic:original file "+ ImageUtils.getFileSize(fileToUpload) + " compressedFile "+ ImageUtils.getFileSize(compressedFile));
+
+            new Handler().postDelayed(
+                    new Runnable() {
+                        @Override
+                        public void run() {
+                           displayProfilePicture(compressedFile);
+                            Log.d(TAG, "run: compressed pic set");
+                        }
+                    }
+
+            ,3000);
+
+            displayProfilePicture(compressedFile);
 
 /*
 

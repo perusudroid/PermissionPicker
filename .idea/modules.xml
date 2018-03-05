@@ -2,8 +2,10 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/MyPermissionPicker.iml" filepath="$PROJECT_DIR$/MyPermissionPicker.iml" />
+      <module fileurl="file://C:\Users\Intel\AndroidStudioProjects\PermissionPicker\MyPermissionPicker.iml" filepath="C:\Users\Intel\AndroidStudioProjects\PermissionPicker\MyPermissionPicker.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/PermissionPicker.iml" filepath="$PROJECT_DIR$/.idea/PermissionPicker.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
+      <module fileurl="file://C:\Users\Intel\AndroidStudioProjects\PermissionPicker\app\app.iml" filepath="C:\Users\Intel\AndroidStudioProjects\PermissionPicker\app\app.iml" />
     </modules>
   </component>
 </project>
