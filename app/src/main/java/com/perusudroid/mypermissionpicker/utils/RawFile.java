@@ -22,11 +22,11 @@ import java.io.IOException;
  * Created by Intel on 05-03-2018.
  */
 
-public class a {
+public class RawFile {
 
 
-    public static a getInstance() {
-        return new a();
+    public static RawFile getInstance() {
+        return new RawFile();
     }
 
     public String compressImage(Context ctx, String imageUri) {

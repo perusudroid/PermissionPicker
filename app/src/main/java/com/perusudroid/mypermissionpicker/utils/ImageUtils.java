@@ -4,10 +4,15 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.res.Resources;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Matrix;
+import android.graphics.Paint;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -27,6 +32,7 @@ import com.perusudroid.mypermissionpicker.view.MainActivity;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Random;
@@ -36,23 +42,348 @@ import java.util.Random;
  * Created by perusu on 26/2/18.
  */
 
-public class ImageUtils {
+public class ImageUtils<T> {
 
 
     private static final String TAG = ImageUtils.class.getSimpleName();
     private static FragmentChooser fragmentChooser;
     private static File camFile;
     private static String camUri;
+    private static Context mContext;
+    private int actualHeight;
+    private int actualWidth;
+
+    private static ImageUtils imageUtils;
+    private BitmapFactory.Options options;
+
+
+    public static ImageUtils getInstance(Context context) {
+        mContext = context;
+        if (imageUtils == null) {
+            imageUtils = new ImageUtils();
+        }
+        return imageUtils;
+    }
+
+    public String getCompressedImage(File file){
+
+        String filePath = file.getAbsolutePath();
+
+        return getProcessedFile(filePath);
+
+    }
+
+
+    public String getCompressedImage(String imageUri) {
+
+        String filePath = getRealPathFromURI(mContext, imageUri);
+
+        return getProcessedFile(filePath);
+
+    }
+
+    private String getProcessedFile(String filePath){
+
+        Bitmap decodedBmp = getDecodedBitmap(filePath);
+
+        Bitmap scaledBitmap = getScaledBitmap(decodedBmp, filePath);
+
+        return processFile(scaledBitmap);
+    }
+
+
+    private Bitmap getDecodedBitmap(String filePath) {
+
+        options = new BitmapFactory.Options();
+
+        //by setting this field as true, the actual bitmap pixels are not loaded in the memory. Just the bounds are loaded. If
+        //you try the use the bitmap here, you will get null.
+        options.inJustDecodeBounds = true;
+
+        Bitmap bmp = BitmapFactory.decodeFile(filePath, options);
+
+        actualHeight = options.outHeight;
+        actualWidth = options.outWidth;
+
+        //max Height and width values of the compressed image is taken as 816x612
+
+        float maxHeight = 816.0f;
+        float maxWidth = 612.0f;
+        float imgRatio = actualWidth / actualHeight;
+        float maxRatio = maxWidth / maxHeight;
+
+        //width and height values are set maintaining the aspect ratio of the image
+
+        if (actualHeight > maxHeight || actualWidth > maxWidth) {
+            if (imgRatio < maxRatio) {
+                imgRatio = maxHeight / actualHeight;
+                actualWidth = (int) (imgRatio * actualWidth);
+                actualHeight = (int) maxHeight;
+            } else if (imgRatio > maxRatio) {
+                imgRatio = maxWidth / actualWidth;
+                actualHeight = (int) (imgRatio * actualHeight);
+                actualWidth = (int) maxWidth;
+            } else {
+                actualHeight = (int) maxHeight;
+                actualWidth = (int) maxWidth;
+
+            }
+        }
+
+        //setting inSampleSize value allows to load a scaled down version of the original image
+        options.inSampleSize = calculateInSampleSize(options, actualWidth, actualHeight);
+
+        //inJustDecodeBounds set to false to load the actual bitmap
+        options.inJustDecodeBounds = false;
+
+        //this options allow android to claim the bitmap memory if it runs low on memory
+        options.inPurgeable = true;
+        options.inInputShareable = true;
+        options.inTempStorage = new byte[16 * 1024];
+
+
+        try {
+//          load the bitmap from its path
+            bmp = BitmapFactory.decodeFile(filePath, options);
+        } catch (OutOfMemoryError exception) {
+            exception.printStackTrace();
+
+        }
+
+        return bmp;
+    }
+
+    private Bitmap getScaledBitmap(Bitmap decodedBmp, String filePath) {
+
+        Bitmap scaledBitmap = null;
+
+        try {
+            scaledBitmap = Bitmap.createBitmap(actualWidth, actualHeight, Bitmap.Config.ARGB_8888);
+        } catch (OutOfMemoryError exception) {
+            exception.printStackTrace();
+        }
+
+
+        float ratioX = actualWidth / (float) options.outWidth;
+        float ratioY = actualHeight / (float) options.outHeight;
+        float middleX = actualWidth / 2.0f;
+        float middleY = actualHeight / 2.0f;
+
+        Matrix scaleMatrix = new Matrix();
+        scaleMatrix.setScale(ratioX, ratioY, middleX, middleY);
+
+        Canvas canvas = new Canvas(scaledBitmap);
+        canvas.setMatrix(scaleMatrix);
+        canvas.drawBitmap(decodedBmp, middleX - decodedBmp.getWidth() / 2, middleY - decodedBmp.getHeight() / 2, new Paint(Paint.FILTER_BITMAP_FLAG));
+
+//      check the rotation of the image and display it properly
+        ExifInterface exif;
+        try {
+            exif = new ExifInterface(filePath);
+
+            int orientation = exif.getAttributeInt(
+                    ExifInterface.TAG_ORIENTATION, 0);
+            Log.d("EXIF", "Exif: " + orientation);
+            Matrix matrix = new Matrix();
+            if (orientation == 6) {
+                matrix.postRotate(90);
+                Log.d("EXIF", "Exif: " + orientation);
+            } else if (orientation == 3) {
+                matrix.postRotate(180);
+                Log.d("EXIF", "Exif: " + orientation);
+            } else if (orientation == 8) {
+                matrix.postRotate(270);
+                Log.d("EXIF", "Exif: " + orientation);
+            }
+            scaledBitmap = Bitmap.createBitmap(scaledBitmap, 0, 0,
+                    scaledBitmap.getWidth(), scaledBitmap.getHeight(), matrix,
+                    true);
+        } catch (IOException e) {
+            // e.printStackTrace();
+        }
+
+        return scaledBitmap;
+
+    }
+
+
+
+
+    private String processFile(Bitmap scaledBitmap) {
+        FileOutputStream out = null;
+
+        // Use this to use cache directory
+        String filename = getTempFileName();
+
+        // Use this to write compressed images to your storage
+       // String filename = getExternalFileName();
+        try {
+            out = new FileOutputStream(filename);
+
+            // write the compressed bitmap at the destination specified by filename.
+            scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 80, out);
+
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+
+        return filename;
+    }
+
+
+    public String getExternalFileName() {
+
+        File file = new File(Environment.getExternalStorageDirectory().getPath(), "MyFolder/Images");
+        if (!file.exists()) {
+            file.mkdirs();
+        }
+        return (file.getAbsolutePath() + "/" + System.currentTimeMillis() + ".jpg");
+
+    }
+
+
+    public static String getTempFileName() {
+
+        File file = new File(mContext.getCacheDir(), "" + System.currentTimeMillis() + "_" + ".png");
+
+        return file.getAbsolutePath();
+    }
+
+
+    public static Bitmap getCompressedImage(File originalFile, int width, int height) {
+
+        Bitmap paramBitmap = getBitmap(originalFile.getAbsolutePath());
+
+
+        if (paramBitmap != null) {
+
+            File compressedFile = getFileFromBitmap1(paramBitmap, width, height);
+
+            imageFileAttributes(originalFile, "originalFile");
+            imageFileAttributes(compressedFile, "compressedFile");
+
+            //return compressedFile; // if you need file
+            return getBitmapFromFile(compressedFile);
+        }
+        return null;
+    }
+
+
+    private static File getFileFromBitmap1(Bitmap paramBitmap, int width, int height) {
+
+        File localFile = new File(getTempFileName());
+        ByteArrayOutputStream localByteArrayOutputStream = new ByteArrayOutputStream();
+        compressBitmap(paramBitmap, width, height).compress(Bitmap.CompressFormat.PNG, 100, localByteArrayOutputStream);
+        byte[] arrayOfByte = localByteArrayOutputStream.toByteArray();
+
+        try {
+            FileOutputStream localFileOutputStream = new FileOutputStream(localFile);
+            localFileOutputStream.write(arrayOfByte);
+            localFileOutputStream.flush();
+            localFileOutputStream.close();
+            return localFile;
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+
+    public static int calculateInSampleSize(
+            BitmapFactory.Options options, int reqWidth, int reqHeight) {
+        // Raw height and width of image
+        final int height = options.outHeight;
+        final int width = options.outWidth;
+        int inSampleSize = 1;
+
+        if (height > reqHeight || width > reqWidth) {
+
+            final int halfHeight = height / 2;
+            final int halfWidth = width / 2;
+
+            // Calculate the largest inSampleSize value that is a power of 2 and keeps both
+            // height and width larger than the requested height and width.
+            while ((halfHeight / inSampleSize) >= reqHeight
+                    && (halfWidth / inSampleSize) >= reqWidth) {
+                inSampleSize *= 2;
+            }
+        }
+
+        return inSampleSize;
+    }
+
+
+    public static String getFileSize(final File file) {
+        long len = getFileLength(file);
+        return len == -1 ? "" : byte2FitMemorySize(len);
+    }
+
+    private static long getFileLength(final File file) {
+        if (!isFile(file)) return -1;
+        return file.length();
+    }
+
+    private static boolean isFile(final File file) {
+        return file != null && file.exists() && file.isFile();
+    }
+
+
+    private static String byte2FitMemorySize(final long byteNum) {
+        if (byteNum < 0) {
+            return "shouldn't be less than zero!";
+        } else if (byteNum < 1024) {
+            return String.format("%.3fB", (double) byteNum);
+        } else if (byteNum < 1048576) {
+            return String.format("%.3fKB", (double) byteNum / 1024);
+        } else if (byteNum < 1073741824) {
+            return String.format("%.3fMB", (double) byteNum / 1048576);
+        } else {
+            return String.format("%.3fGB", (double) byteNum / 1073741824);
+        }
+    }
+
+    public static int getBitmapSize(Bitmap data) {
+        return data.getRowBytes() * data.getHeight();
+    }
+
+
+    public static Bitmap getBitmapFromFile(File file) {
+        if (file.exists()) {
+            return BitmapFactory.decodeFile(file.getAbsolutePath());
+        }
+        return null;
+    }
+
+
+    private static Bitmap compressBitmap(Bitmap paramBitmap, int paramWidth, int paramHeight) {
+        int i = paramBitmap.getWidth();
+        int j = paramBitmap.getHeight();
+        float f = i / j;
+        int m = 0;
+        int k = 0;
+        if (f > 0.0F) {
+            m = paramWidth;
+            k = paramHeight;
+        }
+        Bitmap localBitmap = Bitmap.createScaledBitmap(paramBitmap, m, k, true);
+        ByteArrayOutputStream localByteArrayOutputStream = new ByteArrayOutputStream();
+        localBitmap.compress(Bitmap.CompressFormat.PNG, 100, localByteArrayOutputStream);
+        return localBitmap;
+    }
+
+
+    private static Bitmap getBitmap(final String imagePath) {
+
+        return BitmapFactory.decodeFile(imagePath);
+    }
+
 
 
     private static String genRandomImageName() {
         return gen() + "_profile.jpg";
     }
 
-
-    public static String getCamUri() {
-        return camUri;
-    }
 
     private static int gen() {
         return 10000 + new Random(System.currentTimeMillis()).nextInt(20000);
@@ -152,6 +483,26 @@ public class ImageUtils {
 
     }
 
+    /*
+      Getting selected gallery image path
+     */
+
+    public static String getRealPathFromURI(Context context, String contentURI) {
+        Uri contentUri = Uri.parse(contentURI);
+        Cursor cursor = context.getContentResolver().query(contentUri, null, null, null, null);
+        if (cursor == null) {
+            return contentUri.getPath();
+        } else {
+            cursor.moveToFirst();
+            int index = cursor.getColumnIndex(MediaStore.Images.ImageColumns.DATA);
+            return cursor.getString(index);
+        }
+    }
+
+
+    /*
+      Creating directory for the pictures captured in camera
+     */
 
     public static File getPhotoFileFromUri(Context context, String fileName) {
 
@@ -202,7 +553,7 @@ public class ImageUtils {
 
     //print image attributes
 
-    public static void imageFileAttributes(Context mContext, File file, String type) {
+    public static void imageFileAttributes(File file, String type) {
 
         BitmapFactory.Options options = new BitmapFactory.Options();
         // If set to true, the decoder will return null (no bitmap), but the out... fields will still
@@ -223,236 +574,6 @@ public class ImageUtils {
         return ((BitmapDrawable) drawable).getBitmap();
     }
 
-
-    public static File getCompressedImageAsFile(Context paramContext, File originalFile, boolean reduceQuality) {
-
-        Bitmap paramBitmap = getBitmap(originalFile.getAbsolutePath());
-
-        imageFileAttributes(paramContext, originalFile, "originalFile");
-
-        if (paramBitmap != null) {
-
-            if (reduceQuality) {
-                ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-                // Compress the image further
-                paramBitmap.compress(Bitmap.CompressFormat.JPEG, 70, bytes);
-            }
-
-            File compressedFile = getFileFromBitmap1(paramContext, paramBitmap);
-
-            imageFileAttributes(paramContext, compressedFile, "compressedFile");
-
-            return compressedFile;
-        }
-        return null;
-    }
-
-
-    public static Bitmap getCompressedImageAsBitmap(Context paramContext, File originalFile, boolean reduceQuality) {
-
-        Bitmap paramBitmap = getBitmap(originalFile.getAbsolutePath());
-
-        Log.d(TAG, "getCompressedImageAsFile: original file size " + getFileSize(originalFile));
-
-        if (paramBitmap != null) {
-
-            if (reduceQuality) {
-                ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-                // Compress the image further
-                paramBitmap.compress(Bitmap.CompressFormat.JPEG, 70, bytes);
-            }
-
-            File compressedFile = getFileFromBitmap1(paramContext, paramBitmap);
-
-            Log.d(TAG, "getCompressedImageAsFile: original file size " + getFileSize(compressedFile));
-
-            return getBitmapFromFile(compressedFile);
-        }
-        return null;
-    }
-
-
-    public static File getCompressedImageAsFile(Context paramContext, String path, boolean reduceQuality) {
-
-        Bitmap paramBitmap = getBitmap(path);
-
-
-        if (paramBitmap != null) {
-
-            if (reduceQuality) {
-                ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-                // Compress the image further
-                paramBitmap.compress(Bitmap.CompressFormat.JPEG, 70, bytes);
-            }
-
-            return getFileFromBitmap1(paramContext, paramBitmap);
-        }
-        return null;
-    }
-
-
-    public static Bitmap getCompressedImageAsBitmap(Context paramContext, String path, boolean reduceQuality) {
-        Bitmap paramBitmap = getBitmap(path);
-        if (paramBitmap != null) {
-
-            if (reduceQuality) {
-                ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-                // Compress the image further
-                paramBitmap.compress(Bitmap.CompressFormat.JPEG, 70, bytes);
-            }
-
-            File file = getFileFromBitmap1(paramContext, paramBitmap);
-            return getBitmapFromFile(file);
-        }
-        return null;
-    }
-
-    private static File getFileFromBitmap1(Context paramContext, Bitmap paramBitmap) {
-
-        File localFile = new File(paramContext.getCacheDir(), "" + System.currentTimeMillis() + "_" + "_munch.png");
-        ByteArrayOutputStream localByteArrayOutputStream = new ByteArrayOutputStream();
-        compressBitmap(paramBitmap, 700).compress(Bitmap.CompressFormat.PNG, 100, localByteArrayOutputStream);
-        byte[] arrayOfByte = localByteArrayOutputStream.toByteArray();
-
-        try {
-            FileOutputStream localFileOutputStream = new FileOutputStream(localFile);
-            localFileOutputStream.write(arrayOfByte);
-            localFileOutputStream.flush();
-            localFileOutputStream.close();
-            return localFile;
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        return null;
-    }
-
-
-    public static Bitmap scaleToFitWidth(Bitmap b, int width) {
-        float factor = width / (float) b.getWidth();
-        return Bitmap.createScaledBitmap(b, width, (int) (b.getHeight() * factor), true);
-    }
-
-
-    public static int calculateInSampleSize(
-            BitmapFactory.Options options, int reqWidth, int reqHeight) {
-        // Raw height and width of image
-        final int height = options.outHeight;
-        final int width = options.outWidth;
-        int inSampleSize = 1;
-
-        if (height > reqHeight || width > reqWidth) {
-
-            final int halfHeight = height / 2;
-            final int halfWidth = width / 2;
-
-            // Calculate the largest inSampleSize value that is a power of 2 and keeps both
-            // height and width larger than the requested height and width.
-            while ((halfHeight / inSampleSize) >= reqHeight
-                    && (halfWidth / inSampleSize) >= reqWidth) {
-                inSampleSize *= 2;
-            }
-        }
-
-        return inSampleSize;
-    }
-
-
-    public static String getFileSize(final File file) {
-        long len = getFileLength(file);
-        return len == -1 ? "" : byte2FitMemorySize(len);
-    }
-
-    private static long getFileLength(final File file) {
-        if (!isFile(file)) return -1;
-        return file.length();
-    }
-
-    private static boolean isFile(final File file) {
-        return file != null && file.exists() && file.isFile();
-    }
-
-
-    private static String byte2FitMemorySize(final long byteNum) {
-        if (byteNum < 0) {
-            return "shouldn't be less than zero!";
-        } else if (byteNum < 1024) {
-            return String.format("%.3fB", (double) byteNum);
-        } else if (byteNum < 1048576) {
-            return String.format("%.3fKB", (double) byteNum / 1024);
-        } else if (byteNum < 1073741824) {
-            return String.format("%.3fMB", (double) byteNum / 1048576);
-        } else {
-            return String.format("%.3fGB", (double) byteNum / 1073741824);
-        }
-    }
-
-    public static int getBitmapSize(Bitmap data) {
-        return data.getRowBytes() * data.getHeight();
-    }
-
-
-    public static Bitmap getBitmapFromFile(File file) {
-        if (file.exists()) {
-            return BitmapFactory.decodeFile(file.getAbsolutePath());
-        }
-        return null;
-    }
-
-
-    private static Bitmap compressBitmap(Bitmap paramBitmap, int paramInt) {
-        int i = paramBitmap.getWidth();
-        int j = paramBitmap.getHeight();
-        float f = i / j;
-        int m = 0;
-        int k = 0;
-        if (f > 0.0F) {
-            m = paramInt;
-            k = (int) (m / f);
-        }
-        Bitmap localBitmap = Bitmap.createScaledBitmap(paramBitmap, m, k, true);
-        ByteArrayOutputStream localByteArrayOutputStream = new ByteArrayOutputStream();
-        localBitmap.compress(Bitmap.CompressFormat.PNG, 100, localByteArrayOutputStream);
-        return localBitmap;
-    }
-
-
-    private static Bitmap getBitmap(final String imagePath) {
-
-        return BitmapFactory.decodeFile(imagePath);
-    }
-
-
-/*
-    public ByteArrayBody getCompressedImage(String path) {
-
-        Bitmap imageBitmap = getBitmap(path);
-
-        if (imageBitmap != null) {
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            ByteArrayBody bab;
-            imageBitmap.compress(Bitmap.CompressFormat.JPEG, 100, bos);
-            byte[] data = bos.toByteArray();
-            bab = new ByteArrayBody(data, "" + System.currentTimeMillis() + "displayPicture.jpg");
-            return bab;
-        }
-        return null;
-    }
-
-
-    public ByteArrayBody getCompressedImage(File file) {
-        Bitmap imageBitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
-        if (imageBitmap != null) {
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            ByteArrayBody bab;
-            imageBitmap.compress(Bitmap.CompressFormat.JPEG, 100, bos);
-            byte[] data = bos.toByteArray();
-            bab = new ByteArrayBody(data, "" + System.currentTimeMillis() + " displayPicture.jpg");
-            return bab;
-        }
-        return null;
-    }
-*/
 
 
 }

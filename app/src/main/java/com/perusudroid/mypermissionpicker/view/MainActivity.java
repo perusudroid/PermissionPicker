@@ -2,25 +2,22 @@ package com.perusudroid.mypermissionpicker.view;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.database.Cursor;
 import android.net.Uri;
-import android.os.Handler;
-import android.provider.MediaStore;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.os.Handler;
+import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
 
 import com.bumptech.glide.Glide;
-import com.perusudroid.mypermissionpicker.adapter.AlertDialogListener;
-import com.perusudroid.mypermissionpicker.utils.Constants;
-import com.perusudroid.mypermissionpicker.utils.ImageUtils;
 import com.perusudroid.mypermissionpicker.R;
+import com.perusudroid.mypermissionpicker.adapter.AlertDialogListener;
 import com.perusudroid.mypermissionpicker.permission.IPermissionHandler;
 import com.perusudroid.mypermissionpicker.permission.PermissionProducer;
 import com.perusudroid.mypermissionpicker.permission.RequestPermission;
-import com.perusudroid.mypermissionpicker.utils.a;
+import com.perusudroid.mypermissionpicker.utils.Constants;
+import com.perusudroid.mypermissionpicker.utils.ImageUtils;
 import com.soundcloud.android.crop.Crop;
 
 import java.io.File;
@@ -133,10 +130,20 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     if (resultCamFile != null) {
                           /* WITHOUT CROPPING*/
                         // captured image will be stored in the resultCamFile.
+
                         Log.d(TAG, "onGetResult: file.exists() " + resultCamFile.exists());
                         if (!resultCamFile.exists()) {
                             return;
                         }
+
+
+                        String picPath = ImageUtils.getInstance(this).getCompressedImage(resultCamFile);
+
+                        final File newFile = new File(picPath);
+
+                        Log.d(TAG, "doUploadPic:original file " + ImageUtils.getFileSize(resultCamFile) + " compressedFile " + ImageUtils.getFileSize(newFile));
+
+                        displayProfilePicture(newFile);
 
                         // doCrop(aspectX, aspectY);
 
@@ -150,15 +157,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
                     // WITHOUT CROPPING
                     galleryUri = data.getData();
-                    String[] filePathColumn = {MediaStore.Images.Media.DATA};
-                    Cursor cursor = getActivity().getContentResolver().query(galleryUri,
-                            filePathColumn, null, null, null);
-                    if (cursor != null) {
-                        cursor.moveToFirst();
-                    }
-                    int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
-                    String picturePath = cursor.getString(columnIndex);
-                    cursor.close();
+
+                    String picturePath = ImageUtils.getRealPathFromURI(this, galleryUri.toString());
                     if (picturePath != null) {
                         File source = new File(picturePath);
                         if (!source.exists()) {
@@ -168,7 +168,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         resultGalleryFile = source;
                         displayProfilePicture(resultGalleryFile);
                         doUploadPic(resultGalleryFile);
-
 
                         //doCrop(aspectX, aspectY);
                     }
@@ -181,6 +180,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     File file = new File(filePath);
                     if (file.exists()) {
                         resultCroppedFile = file;
+                        String picPath = ImageUtils.getInstance(this).getCompressedImage(resultCroppedFile);
+                        final File newFile = new File(picPath);
+                        Log.d(TAG, "doUploadPic:original file " + ImageUtils.getFileSize(resultCroppedFile) + " compressedFile " + ImageUtils.getFileSize(newFile));
                         displayProfilePicture(file);
                     }
 
@@ -212,32 +214,21 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void doUploadPic(final File fileToUpload) {
         try {
 
-            displayProfilePicture(fileToUpload);
+            String my = ImageUtils.getInstance(this).getCompressedImage(galleryUri.toString());
+            final File compressedFile = new File(my);
 
-            Log.d(TAG, "doUploadHotelPic: ");
-
-         // final File compressedFile = ImageUtils.getCompressedImageAsFile(this, fileToUpload, false);
-
-            final String str = a.getInstance().compressImage(this, galleryUri.toString());
-
-            final File compressedFile = new File(str);
-
-            Log.d(TAG, "doUploadPic: file.exists "+ compressedFile.exists());
-
-            Log.d(TAG, "doUploadPic:original file "+ ImageUtils.getFileSize(fileToUpload) + " compressedFile "+ ImageUtils.getFileSize(compressedFile));
+            Log.d(TAG, "doUploadPic:original file " + ImageUtils.getFileSize(fileToUpload) + " compressedFile " + ImageUtils.getFileSize(compressedFile));
 
             new Handler().postDelayed(
                     new Runnable() {
                         @Override
                         public void run() {
-                           displayProfilePicture(compressedFile);
+                            displayProfilePicture(compressedFile);
                             Log.d(TAG, "run: compressed pic set");
                         }
                     }
 
-            ,3000);
-
-            displayProfilePicture(compressedFile);
+                    , 3000);
 
 /*
 

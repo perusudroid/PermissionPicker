@@ -4,6 +4,7 @@
     <modules>
       <module fileurl="file://C:\Users\Intel\AndroidStudioProjects\PermissionPicker\MyPermissionPicker.iml" filepath="C:\Users\Intel\AndroidStudioProjects\PermissionPicker\MyPermissionPicker.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/PermissionPicker.iml" filepath="$PROJECT_DIR$/.idea/PermissionPicker.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/PermissionPicker-git.iml" filepath="$PROJECT_DIR$/.idea/PermissionPicker-git.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
       <module fileurl="file://C:\Users\Intel\AndroidStudioProjects\PermissionPicker\app\app.iml" filepath="C:\Users\Intel\AndroidStudioProjects\PermissionPicker\app\app.iml" />
     </modules>
